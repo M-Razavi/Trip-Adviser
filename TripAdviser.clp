@@ -16,8 +16,32 @@
 
 ;;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ;;--------------------------------------------------------------------------------
-;;Facts
+;;Methods
+;;--------------------------------------------------------------------------------
+;;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+(defmethod get-integer ((?query STRING))
+   (bind ?value FALSE)
+   (while (not (integerp ?value))
+      (printout t ?query " ")
+      (bind ?value (read)))
+	?value)
 
+(defmethod get-integer ((?query STRING) (?lower INTEGER) (?upper INTEGER))
+   (bind ?value FALSE)
+   (while (or (not (integerp ?value)) (< ?value ?lower) (> ?value ?upper))
+      (printout t ?query " (" ?lower " - " ?upper ") ")
+      (bind ?value (read)))
+	?value)
+
+(defmethod get-yes-no ((?query STRING))
+   (bind ?value FALSE)
+   (while (or (not (stringp ?value)) (neq ?value "yes") (neq ?value "y") (neq ?value "no") (neq ?value "n"))
+      (printout t ?query " ")
+      (bind ?value (read)))
+	?value)
+;;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+;;--------------------------------------------------------------------------------
+;;Facts
 ;;--------------------------------------------------------------------------------
 ;;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -41,47 +65,38 @@
 )
 
 (deftemplate personalityIntrovert
-	0 5 point
+	0 100 point
 	(
-	(low (z 0 3))
-	(medium (PI 1 3))
-	(high (s 4 5))
+		(low (z 0 35))
+		(medium (PI 15 50))
+		(high (s 80 100))
 	)
 )
 
-(deftemplate personalityExtravert
-	0 5 point
+(deftemplate personalityExtrovert
+	0 100 point
 	(
-	(low (z 0 3))
-	(medium (PI 1 3))
-	(high (s 4 5))
+		(low (z 0 35))
+		(medium (PI 15 50))
+		(high (s 80 100))
 	)
 )
 
 (deftemplate personalityAllocentrics
-	0 5 point
+	0 100 point
 	(
-	(low (z 0 3))
-	(medium (PI 1 3))
-	(high (s 4 5))
+		(low (z 0 35))
+		(medium (PI 15 50))
+		(high (s 80 100))
 	)
 )
 
 (deftemplate personalityPsychocentrics
-	0 5 point
+	0 100 point
 	(
-	(low (z 0 3))
-	(medium (PI 1 3))
-	(high (s 4 5))
-	)
-)
-
-(deftemplate personalityIntrovert
-	0 5 point
-	(
-	(low (z 0 3))
-	(medium (PI 1 3))
-	(high (s 4 5))
+		(low (z 0 35))
+		(medium (PI 15 50))
+		(high (s 80 100))
 	)
 )
 
@@ -104,7 +119,7 @@
 (defrule introduction
 	?i <- (initial-fact)
 	=>
-	(printout t "This program is designed to help tourist or travel agency to decide chosing some destination that match their point of view." crlf)
+	(printout t "This program is designed to help tourist or travel agency to decide choosing some destination that match their point of view." crlf)
 	(printout t "You will be prompted for the passenger's name, age, and gender." crlf crlf)
 	(assert (get name))
 	(retract ?i))
@@ -113,6 +128,7 @@
 ;;--------------------------------------------------------------------------------
 ;;Move into getting inputs
 (defrule getNameAgeGender
+	(declare (salience 1))
 	?g <- (get name)
 	=>
 	(printout t "Before we go any farther, what is the passenger's name? ")
@@ -120,16 +136,144 @@
 	(bind ?name ?response)
 	(assert (name ?response))
 	(printout t "How old is " ?response " (18-100)? ")
-	(bind ?response (read))
+	;(bind ?response (read))
+	(bind ?response (get-integer "Enter a number: " 18 100))
 	(assert (crispAge ?response))
-	(printout t "What is " ?name "'s gender? (1:man   2:woman)")
-	(bind ?response (read))
+	(printout t "What is " ?name "'s gender? (1:man   2:woman)? ")
+	;(bind ?response (read))
+	(bind ?response (get-integer "Enter a number: " 1 2))
 	(if(eq ?response 2)
 		then(assert(gender woman))
 	else(if(eq ?response 1)
 		then(assert(gender man)))
-	else (assert (gender undefined)))
-	(assert (get personality))
-	(retract ?g))
+	else (assert (gender man)))
+	(assert (get personality1))
+	(retract ?g)
+)
+
+;;--------------------------------------------------------------------------------
+;;Name prefix
+;;--------------------------------------------------------------------------------
+;;Determine prefix for name based on gender
+(defrule createNamePrefix
+	(name ?name)
+	(gender ?genderType)
+	=>
+	(if (eq ?genderType man)
+		then(assert (namePrefix Mr))
+	else (assert (namePrefix Mrs))
+	)
+)
 	
+;;--------------------------------------------------------------------------------
+;;Personality
+;;--------------------------------------------------------------------------------
+;;Next, we will ask the personality between introvert and extrovert
+(defrule getPersonalityIntrovertExtrovert
+	(declare (salience 2))
+	?f <- (get personality1)
+	(name ?name)
+	(namePrefix ?prefix)
+	=>
+	(printout t crlf "Is " ?prefix " " ?name " introvert or extrovert(1:Introvert  2:extrovert)? " crlf)
+	(bind ?response (get-integer "Enter a number: " 1 2))
+	(if(eq ?response 2)
+		then(assert(personality1 extrovert))
+	else(if(eq ?response 1)
+		then(assert(personality1 introvert)))
+	)
+	(assert (get personality1Measurement))
+	(printout t crlf)
+	(retract ?f)
+)
+
+;;Introvert or Extrovert measurement
+(defrule getPersonalityIntrovertExtrovertMeasurement
+	(declare (salience 3))
+	?f <- (get personality1Measurement)
+	(name ?name)
+	(namePrefix ?prefix)
+	(personality1 ?p1)
+	=>
+	(printout t crlf "What is " ?prefix " " ?name "'s degree of " ?p1"(0 - 100)? " crlf)
+	(bind ?response (get-integer "Enter a number between: " 0 100))
+	(assert (crispPersonality1 ?response))
+	(assert (get personality2))
+	(printout t crlf)
+	(retract ?f)
+)
+
+;;Next, we will ask the personality between Allocentric and Psychocentric
+(defrule getPersonalityAllocentricPsychocentric
+	(declare (salience 4))
+	?f <- (get personality2)
+	(name ?name)
+	(namePrefix ?prefix)
+	=>
+	(printout t crlf "Is " ?prefix " " ?name " Allocentric or Psychocentric(1:Allocentric  2:Psychocentric)? " crlf)
+	(bind ?response (get-integer "Enter a number: " 1 2))
+	(if(eq ?response 2)
+		then(assert(personality2 psychocentric))
+	else(if(eq ?response 1)
+		then(assert(personality2 allocentric)))
+	)
+	(assert (get personality2Measurement))
+	(printout t crlf)
+	(retract ?f)
+)
+
+;;Allocentric or Psychocentric Measurement
+(defrule getPersonalityAllocentricPsychocentricMeasurement
+	(declare (salience 5))
+	?f <- (get personality2Measurement)
+	(name ?name)
+	(namePrefix ?prefix)
+	(personality2 ?p1)
+	=>
+	(printout t crlf "What is " ?prefix " " ?name "'s degree of " ?p1"(0 - 100)? " crlf)
+	(bind ?response (get-integer "Enter a number between: " 0 100))
+	(assert (crispPersonality2 ?response))
+	(assert (get otherInterest1))
+	(printout t crlf)
+	(retract ?f)
+)
+
+;;--------------------------------------------------------------------------------
+;;Interest
+;;--------------------------------------------------------------------------------
+;;Next, we will ask the Interest
+(defrule getInterestTreatment
+	(declare (salience 6))
+	?f <- (get otherInterest1)
+	(name ?name)
+	(namePrefix ?prefix)
+	=>
+	(printout t crlf "Is 'Treatment' one of " ?prefix " " ?name "'s purpose of trip(1:yes  2:no)? " crlf)
+	(bind ?response (get-integer "Enter a number: " 1 2))
+	(if(eq ?response 1)
+		then(assert(interestTreatment yes))
 	
+	)
+	(assert (get interestTreatmentType))
+	(printout t crlf)
+	(retract ?f)
+)
+
+(defrule getInterestTreatmentType
+	(declare (salience 7))
+	?f <- (get interestTreatmentType)
+	(name ?name)
+	(namePrefix ?prefix)
+	=>
+	(printout t crlf "What type of 'Treatment' " ?prefix " " ?name "needs(1:Beauty 2:Medicinal)? " crlf)
+	(bind ?response (get-integer "Enter a number: " 1 2))
+	(if(eq ?response 2)
+		then(assert(interest reatmentType medicinal))
+	else(if(eq ?response 1)
+		then(assert(interest reatmentType beauty)))
+	)
+	(assert (get otherInterest2))
+	(printout t crlf)
+	(retract ?f)
+)
+
